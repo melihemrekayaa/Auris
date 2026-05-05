@@ -1,17 +1,28 @@
-# auris
+# Auris 🎧
 
-A new Flutter project.
+**Turn any article into a captivating podcast.**
 
-## Getting Started
+Auris is a premium, cross-platform mobile application built with Flutter that leverages generative AI to transform text-based content (articles, news, blogs) into engaging, dialogue-driven audio experiences. 
 
-This project is a starting point for a Flutter application.
+## 🚀 Key Features
+- **Premium Glassmorphism UI:** A sleek, modern dark-themed interface built from scratch without relying on generic material components.
+- **AI-Powered Audio Generation (WIP):** Summarizes long texts and synthesizes ultra-realistic conversational podcasts using LLMs and TTS APIs.
+- **Frictionless Onboarding:** Device ID-based free trial system—no account creation required to experience the "Aha!" moment.
+- **Cross-Platform:** Built with Flutter for flawless native performance on both iOS and Android.
 
-A few resources to get you started if this is your first Flutter project:
+## 🛠 Tech Stack
+- **Framework:** Flutter & Dart
+- **Architecture:** Feature-First (Domain Driven) Clean Architecture
+- **State Management:** Riverpod
+- **Backend & DB:** Firebase (Firestore)
+- **Local Storage:** Shared Preferences
+- **Design:** Custom Glassmorphism, Google Fonts (Inter & Outfit)
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## 💡 About the Project
+This project was built to demonstrate end-to-end full-stack mobile development capabilities, focusing on:
+1. Solving a real user pain point (reading fatigue).
+2. Implementing a zero-friction monetization model (Pay-as-you-go API Wrapper).
+3. Writing clean, scalable, and maintainable Dart code.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+---
+*Developed by Melih.*

@@ -2,17 +2,54 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:lucide_icons/lucide_icons.dart'; // We will use standard icons for now, but assume lucide style
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:showcaseview/showcaseview.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/providers/trial_provider.dart';
-
 import '../../player/presentation/player_screen.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    return ShowCaseWidget(
+      builder: (context) => const _HomeScreenContent(),
+    );
+  }
+}
+
+class _HomeScreenContent extends ConsumerStatefulWidget {
+  const _HomeScreenContent({super.key});
+
+  @override
+  ConsumerState<_HomeScreenContent> createState() => _HomeScreenContentState();
+}
+
+class _HomeScreenContentState extends ConsumerState<_HomeScreenContent> {
+  final GlobalKey _trialBadgeKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndShowCoachmark();
+    });
+  }
+
+  Future<void> _checkAndShowCoachmark() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenCoachmark = prefs.getBool('has_seen_home_coachmark') ?? false;
+    
+    if (!hasSeenCoachmark) {
+      if (!mounted) return;
+      ShowCaseWidget.of(context).startShowCase([_trialBadgeKey]);
+      await prefs.setBool('has_seen_home_coachmark', true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final trialState = ref.watch(trialProvider);
     final hasUsedTrial = trialState.value ?? false;
 
@@ -81,12 +118,58 @@ class HomeScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          hasUsedTrial ? 'Trial Finished (Premium Required)' : 'Paste an Article URL (1 Free Trial)',
-                          style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w600,
-                            color: hasUsedTrial ? AppColors.tertiary : AppColors.textPrimary,
-                          ),
+                        // Tooltip (Coachmark) Target
+                        Showcase(
+                          key: _trialBadgeKey,
+                          description: "Paste an article link here to generate your first free podcast!",
+                          tooltipBackgroundColor: AppColors.primary,
+                          textColor: Colors.white,
+                          descTextStyle: GoogleFonts.inter(fontWeight: FontWeight.w500, fontSize: 14),
+                          child: hasUsedTrial
+                            ? Text(
+                                'Trial Finished (Premium Required)',
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.tertiary,
+                                ),
+                              )
+                            : Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.primary.withOpacity(0.5)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: const BoxDecoration(
+                                        color: AppColors.primary,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Text(
+                                        '1',
+                                        style: GoogleFonts.inter(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Free Trial Available',
+                                      style: GoogleFonts.inter(
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.primary,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                         ),
                         const SizedBox(height: 16),
                         Row(

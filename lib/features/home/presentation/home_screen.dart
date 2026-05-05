@@ -1,16 +1,21 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart'; // We will use standard icons for now, but assume lucide style
 import '../../../core/theme/app_colors.dart';
+import '../../../core/providers/trial_provider.dart';
 
 import '../../player/presentation/player_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final trialState = ref.watch(trialProvider);
+    final hasUsedTrial = trialState.value ?? false;
+
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
       body: SafeArea(
@@ -77,10 +82,10 @@ class HomeScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Paste an Article URL',
+                          hasUsedTrial ? 'Trial Finished (Premium Required)' : 'Paste an Article URL (1 Free Trial)',
                           style: GoogleFonts.inter(
                             fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
+                            color: hasUsedTrial ? AppColors.tertiary : AppColors.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 16),

@@ -148,21 +148,10 @@ class WelcomeScreen extends StatelessWidget {
                       color: Colors.transparent,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(16),
-                        onTap: () async {
-                          final prefs = await SharedPreferences.getInstance();
-                          final hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
-                          
-                          if (!context.mounted) return;
-                          
-                          if (hasSeenOnboarding) {
-                            Navigator.of(context).pushReplacement(
-                              MaterialPageRoute(builder: (context) => const HomeScreen()),
-                            );
-                          } else {
-                            Navigator.of(context).pushReplacement(
-                              MaterialPageRoute(builder: (context) => const OnboardingScreen()),
-                            );
-                          }
+                        onTap: () {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+                          );
                         },
                         child: const Center(
                           child: Text(

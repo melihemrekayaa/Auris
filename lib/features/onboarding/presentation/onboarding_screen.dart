@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../home/presentation/home_screen.dart';
+import '../../auth/presentation/login_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -39,7 +39,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     await prefs.setBool('has_seen_onboarding', true);
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => const HomeScreen()),
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
     );
   }
 

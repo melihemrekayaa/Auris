@@ -41,6 +41,9 @@ dependencies:
   device_info_plus: ^10.0.0
   shared_preferences: ^2.5.5
   firebase_core: ^4.7.0
+  firebase_auth: ^6.4.0
+  google_sign_in: ^6.2.1
+  sign_in_with_apple: ^6.1.1
   showcaseview: ^5.0.2
   flutter_dotenv: ^6.0.1
   http: ^1.6.0

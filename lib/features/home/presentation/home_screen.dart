@@ -8,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/providers/trial_provider.dart';
 import '../../../core/providers/podcast_provider.dart';
 import '../../../core/providers/history_provider.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../player/presentation/player_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -135,27 +136,68 @@ class _HomeScreenContentState extends ConsumerState<_HomeScreenContent> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        'Ready to listen?',
-                        style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                          fontSize: 24,
-                        ),
+                      Consumer(
+                        builder: (context, ref, child) {
+                          final user = ref.watch(authStateProvider).value;
+                          final displayName = user?.displayName ?? 'Ready to listen?';
+                          return Text(
+                            displayName,
+                            style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                              fontSize: 28,
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: AppColors.glassBackground,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.glassBorder),
-                    ),
-                    child: const Icon(
-                      Icons.settings_outlined, // Settings icon
-                      color: AppColors.textPrimary,
-                    ),
-                  )
+                  
+                  // Profile / Logout
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final user = ref.watch(authStateProvider).value;
+                      return GestureDetector(
+                        onTap: () {
+                          showModalBottomSheet(
+                            context: context,
+                            backgroundColor: AppColors.glassBackground,
+                            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+                            builder: (context) => SafeArea(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const SizedBox(height: 12),
+                                  Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+                                  const SizedBox(height: 24),
+                                  ListTile(
+                                    leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+                                    title: Text('Sign Out', style: GoogleFonts.inter(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                                    onTap: () async {
+                                      Navigator.pop(context);
+                                      await ref.read(authServiceProvider).signOut();
+                                    },
+                                  ),
+                                  const SizedBox(height: 16),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: AppColors.glassBackground,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.glassBorder),
+                          ),
+                          child: user?.photoURL != null
+                              ? ClipOval(child: Image.network(user!.photoURL!, fit: BoxFit.cover))
+                              : const Icon(Icons.person_rounded, color: Colors.white, size: 24),
+                        ),
+                      );
+                    },
+                  ),
+
                 ],
               ),
             ),

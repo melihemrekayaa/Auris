@@ -6,27 +6,20 @@ final deviceInfoServiceProvider = Provider<DeviceInfoService>((ref) {
   return DeviceInfoService();
 });
 
-// A StateNotifier to manage the user's trial state
-class TrialStateNotifier extends StateNotifier<AsyncValue<bool>> {
-  final DeviceInfoService _service;
-
-  TrialStateNotifier(this._service) : super(const AsyncValue.loading()) {
-    checkTrialStatus();
-  }
-
-  Future<void> checkTrialStatus() async {
-    try {
-      state = const AsyncValue.loading();
-      final hasUsed = await _service.hasUsedFreeTrial();
-      state = AsyncValue.data(hasUsed);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
+// An AsyncNotifier to manage the user's trial state (Modern Riverpod 3.x syntax)
+class TrialNotifier extends AsyncNotifier<bool> {
+  @override
+  Future<bool> build() async {
+    // Watch the service
+    final service = ref.watch(deviceInfoServiceProvider);
+    // Fetch the initial state
+    return await service.hasUsedFreeTrial();
   }
 
   Future<void> useTrial() async {
     try {
-      await _service.markFreeTrialAsUsed();
+      final service = ref.read(deviceInfoServiceProvider);
+      await service.markFreeTrialAsUsed();
       // Update state to reflect trial is used
       state = const AsyncValue.data(true);
     } catch (e, st) {
@@ -36,7 +29,6 @@ class TrialStateNotifier extends StateNotifier<AsyncValue<bool>> {
 }
 
 // The main provider the UI will watch
-final trialProvider = StateNotifierProvider<TrialStateNotifier, AsyncValue<bool>>((ref) {
-  final service = ref.watch(deviceInfoServiceProvider);
-  return TrialStateNotifier(service);
+final trialProvider = AsyncNotifierProvider<TrialNotifier, bool>(() {
+  return TrialNotifier();
 });

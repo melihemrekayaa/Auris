@@ -1,0 +1,7 @@
+flutter_native_splash:
+  color: "#0F172A"
+  # Once we have an icon, we will uncomment the below line and provide an image
+  # image: assets/images/logo.png
+
+  android_12:
+    color: "#0F172A"

@@ -13,17 +13,18 @@ class WelcomeScreen extends StatelessWidget {
     return Scaffold(
       body: Stack(
         children: [
-          // Background Gradient
+          // Background Gradient - Richer and deeper
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  AppColors.backgroundLight,
-                  AppColors.backgroundDark,
-                  AppColors.backgroundDarker,
+                  Color(0xFF2E1065), // Deep Purple
+                  Color(0xFF0F172A), // Slate 900
+                  Color(0xFF020617), // Slate 950
                 ],
+                stops: [0.0, 0.4, 1.0],
               ),
             ),
           ),
@@ -70,7 +71,7 @@ class WelcomeScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Glassmorphism Card
+                  // Glassmorphism Card (No Border)
                   ClipRRect(
                     borderRadius: BorderRadius.circular(24),
                     child: BackdropFilter(
@@ -79,15 +80,12 @@ class WelcomeScreen extends StatelessWidget {
                         width: 320,
                         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
                         decoration: BoxDecoration(
-                          color: AppColors.glassBackground,
+                          color: AppColors.glassBackground, // very subtle white
                           borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: AppColors.glassBorder,
-                            width: 1.5,
-                          ),
+                          // BORDER REMOVED AS REQUESTED
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
+                              color: Colors.black.withOpacity(0.3),
                               blurRadius: 30,
                               spreadRadius: -5,
                             )

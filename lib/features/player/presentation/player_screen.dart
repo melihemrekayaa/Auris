@@ -126,25 +126,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   void _updateLyricsScroll() {
-    if (_sentences.isEmpty || !_lyricsScrollController.hasClients) return;
+    if (_sentences.isEmpty) return;
 
     final currentSec = _position.inMilliseconds / 1000.0;
     int newIndex = _sentences.indexWhere((s) => currentSec >= s.startTime && currentSec <= s.endTime);
     
-    // Eğer konuşma aralarındaki bir saniyedeysek (örneğin iki cümle arası), son okunan cümleyi vurgulu tutabiliriz
+    // Eğer konuşma aralarındaki bir saniyedeysek, son okunan cümleyi vurgulu tut
     if (newIndex == -1) {
       newIndex = _sentences.lastIndexWhere((s) => currentSec > s.endTime);
     }
 
     if (newIndex != -1 && newIndex != _currentSentenceIndex) {
-      _currentSentenceIndex = newIndex;
-      // Scroll to index
-      final double offset = _currentSentenceIndex * 60.0; // Tahmini bir yükseklik
-      _lyricsScrollController.animateTo(
-        offset.clamp(0.0, _lyricsScrollController.position.maxScrollExtent),
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+      setState(() {
+        _currentSentenceIndex = newIndex;
+      });
     }
   }
 
@@ -216,34 +211,34 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             Positioned(
                               top: 48,
                               right: 0,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary,
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.primary.withOpacity(0.4),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      'Tap to show lyrics ',
-                                      style: GoogleFonts.inter(
-                                        color: Colors.white,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
+                              child: GestureDetector(
+                                onTap: () => setState(() => _showSubtitleTooltip = false),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppColors.primary.withOpacity(0.4),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
                                       ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    GestureDetector(
-                                      onTap: () => setState(() => _showSubtitleTooltip = false),
-                                      child: Container(
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Tap to show lyrics ',
+                                        style: GoogleFonts.inter(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                         decoration: BoxDecoration(
                                           color: Colors.white.withOpacity(0.2),
@@ -258,8 +253,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                           ),
                                         ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),

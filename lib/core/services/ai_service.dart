@@ -41,6 +41,7 @@ CRITICAL RULES:
           }
         ],
         'temperature': 0.7,
+        'max_tokens': 400, // ~200 kelime = ~400 token = ~1200 karakter (ElevenLabs tasarrufu)
       }),
     );
 

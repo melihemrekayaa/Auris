@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/podcast_history.dart';
 
@@ -19,8 +20,27 @@ class HistoryNotifier extends Notifier<List<PodcastHistory>> {
     
     if (historyJson != null) {
       try {
+        final appDocDir = await getApplicationDocumentsDirectory();
         final List<dynamic> decodedList = jsonDecode(historyJson);
-        final history = decodedList.map((e) => PodcastHistory.fromJson(e)).toList();
+        final history = decodedList.map((e) {
+          final p = PodcastHistory.fromJson(e);
+          // Sadece dosya ismini al
+          final fileName = p.audioFilePath.split('/').last;
+          // Yeni (güncel) uygulama dizini ile birleştir
+          final updatedPath = '${appDocDir.path}/$fileName';
+          
+          return PodcastHistory(
+            id: p.id,
+            url: p.url,
+            title: p.title,
+            imageUrl: p.imageUrl,
+            category: p.category,
+            audioFilePath: updatedPath,
+            script: p.script,
+            wordTimestamps: p.wordTimestamps,
+            createdAt: p.createdAt,
+          );
+        }).toList();
         // Sort by newest first
         history.sort((a, b) => b.createdAt.compareTo(a.createdAt));
         state = history;

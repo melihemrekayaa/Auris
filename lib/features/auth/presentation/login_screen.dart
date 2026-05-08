@@ -135,12 +135,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg',
                       onTap: _signInWithGoogle,
                     ),
-                    const SizedBox(height: 16),
-                    _buildSocialButton(
-                      title: 'Continue with Apple',
-                      iconData: Icons.apple_rounded,
-                      onTap: _signInWithApple,
-                    ),
+                    // TODO: Apple Developer Program (Ücretli) hesabı alındığında açılacak.
+                    // const SizedBox(height: 16),
+                    // _buildSocialButton(
+                    //   title: 'Continue with Apple',
+                    //   iconData: Icons.apple_rounded,
+                    //   onTap: _signInWithApple,
+                    // ),
                   ],
                   const Spacer(),
                 ],
@@ -179,12 +180,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 else if (iconUrl != null)
                   Image.network(iconUrl, width: 24, height: 24),
                 const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: GoogleFonts.inter(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                Flexible(
+                  child: Text(
+                    title,
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],

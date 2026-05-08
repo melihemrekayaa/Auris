@@ -1,6 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 import '../services/scraper_service.dart';
 import '../services/ai_service.dart';
 import '../models/word_timestamp.dart';
@@ -87,38 +85,35 @@ class PodcastNotifier extends Notifier<PodcastGenerationState> {
       // 3. Generate Audio with Timestamps
       final result = await ai.generateAudio(script);
       
-      state = state.copyWith(statusMessage: 'Saving audio...');
+      state = state.copyWith(statusMessage: 'Saving to cloud...');
       
-      // 4. Save to persistent application documents directory
-      final appDocDir = await getApplicationDocumentsDirectory();
       final uuid = const Uuid().v4();
-      final file = File('${appDocDir.path}/podcast_$uuid.mp3');
-      await file.writeAsBytes(result.audioBytes);
       
-      // 5. Akıllı kategori tespiti
+      // 4. Akıllı kategori tespiti
       final smartCategory = CategoryDetector.detect(
         title: article.title,
         rawCategory: article.category,
         url: url,
       );
 
-      // 6. Add to history
+      // 5. Upload to cloud and save metadata — returns the download URL
       final history = PodcastHistory(
         id: uuid,
         url: url,
         title: article.title,
         imageUrl: article.imageUrl,
         category: smartCategory,
-        audioFilePath: file.path,
+        audioFilePath: '', // Will be replaced by the cloud URL
         script: script,
         wordTimestamps: result.wordTimestamps,
         createdAt: DateTime.now(),
       );
-      await ref.read(historyProvider.notifier).addPodcast(history);
       
+      final downloadUrl = await ref.read(historyProvider.notifier).addPodcast(history, result.audioBytes);
+
       state = state.copyWith(
         isLoading: false,
-        audioFilePath: file.path,
+        audioFilePath: downloadUrl, // Real cloud URL — ready to play!
         statusMessage: 'Done!',
         wordTimestamps: result.wordTimestamps,
         script: script,

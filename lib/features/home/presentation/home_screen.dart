@@ -10,6 +10,7 @@ import '../../../core/providers/podcast_provider.dart';
 import '../../../core/providers/history_provider.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../player/presentation/player_screen.dart';
+import 'podcast_loading_overlay.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -115,7 +116,9 @@ class _HomeScreenContentState extends ConsumerState<_HomeScreenContent> {
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
-      body: SafeArea(
+      body: Stack(
+        children: [
+          SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -363,20 +366,26 @@ class _HomeScreenContentState extends ConsumerState<_HomeScreenContent> {
             Expanded(
               child: Consumer(
                 builder: (context, ref, child) {
-                  final history = ref.watch(historyProvider);
+                  final historyAsync = ref.watch(historyProvider);
                   
-                  if (history.isEmpty) {
-                    return Center(
-                      child: Text(
-                        'No podcasts generated yet.\nPaste a link above to get started!',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(
-                          color: AppColors.textSecondary,
-                          fontSize: 16,
-                        ),
-                      ),
-                    );
-                  }
+                  return historyAsync.when(
+                    loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                    error: (error, stack) => Center(
+                      child: Text('Error loading library: $error', style: GoogleFonts.inter(color: Colors.redAccent)),
+                    ),
+                    data: (history) {
+                      if (history.isEmpty) {
+                        return Center(
+                          child: Text(
+                            'No podcasts generated yet.\nPaste a link above to get started!',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.inter(
+                              color: AppColors.textSecondary,
+                              fontSize: 16,
+                            ),
+                          ),
+                        );
+                      }
 
                   return ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -516,11 +525,19 @@ class _HomeScreenContentState extends ConsumerState<_HomeScreenContent> {
                       );
                     },
                   );
+                    }, // end of data callback
+                  ); // end of historyAsync.when
                 },
               ),
             ),
           ],
         ),
+      ),
+      
+          // Tam ekran Loading Overlay
+          if (podcastState.isLoading)
+            PodcastLoadingOverlay(statusMessage: podcastState.statusMessage),
+        ],
       ),
     );
   }

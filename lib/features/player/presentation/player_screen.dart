@@ -99,9 +99,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
     });
 
     // Load file if available
-    if (widget.audioFilePath != null) {
+    if (widget.audioFilePath != null && widget.audioFilePath!.isNotEmpty) {
       try {
-        await _audioPlayer.setSourceDeviceFile(widget.audioFilePath!);
+        final path = widget.audioFilePath!;
+        if (path.startsWith('http://') || path.startsWith('https://')) {
+          // Cloud URL — play directly from URL (audioplayers handles caching)
+          await _audioPlayer.setSourceUrl(path);
+        } else {
+          // Local file
+          await _audioPlayer.setSourceDeviceFile(path);
+        }
         _isPlayerReady = true;
         // Auto play
         await _audioPlayer.resume();
@@ -436,71 +443,84 @@ class _PlayerScreenState extends State<PlayerScreen> {
             ),
           ),
           
-          // Animasyonlu Lyrics Paneli
-          if (_sentences.isNotEmpty)
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 400),
-              curve: Curves.easeInOut,
-              left: 0,
-              right: 0,
-              bottom: _showLyrics ? 0 : -(MediaQuery.of(context).size.height * 0.45),
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                  child: Container(
-                    height: MediaQuery.of(context).size.height * 0.45,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
-                      border: Border(top: BorderSide(width: 1, color: Colors.white.withOpacity(0.1))),
-                    ),
-                    child: Column(
-                      children: [
-                        // Kapat butonu ve çizgi
-                        GestureDetector(
-                          onTap: () => setState(() => _showLyrics = false),
-                          child: Container(
-                            margin: const EdgeInsets.only(top: 12, bottom: 8),
-                            width: 40,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(2),
+          // Sürüklenebilir Lyrics Paneli (DraggableScrollableSheet)
+          if (_sentences.isNotEmpty && _showLyrics)
+            DraggableScrollableSheet(
+              initialChildSize: 0.35,
+              minChildSize: 0.15,
+              maxChildSize: 0.75,
+              snap: true,
+              snapSizes: const [0.15, 0.35, 0.55, 0.75],
+              builder: (context, scrollController) {
+                return ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        border: Border(top: BorderSide(width: 1, color: Colors.white.withOpacity(0.15))),
+                      ),
+                      child: Column(
+                        children: [
+                          // Sürükleme çubuğu (handle)
+                          GestureDetector(
+                            onTap: () => setState(() => _showLyrics = false),
+                            child: Container(
+                              margin: const EdgeInsets.only(top: 12, bottom: 4),
+                              width: 40,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.4),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
                             ),
                           ),
-                        ),
-                        // Şarkı sözleri
-                        Expanded(
-                          child: ListView.builder(
-                            controller: _lyricsScrollController,
-                            padding: const EdgeInsets.only(top: 12, bottom: 80, left: 24, right: 24),
-                            itemCount: _sentences.length,
-                            itemBuilder: (context, index) {
-                              final sentence = _sentences[index];
-                              final isActive = index == _currentSentenceIndex;
-                              final isPast = index < _currentSentenceIndex;
-
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                child: Text(
-                                  sentence.text,
-                                  style: GoogleFonts.inter(
-                                    fontSize: isActive ? 22 : 18,
-                                    fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                                    color: isActive 
-                                        ? Colors.white 
-                                        : (isPast ? Colors.white.withOpacity(0.5) : Colors.white.withOpacity(0.2)),
-                                  ),
-                                ),
-                              );
-                            },
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              'Subtitles',
+                              style: GoogleFonts.inter(
+                                color: Colors.white54,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                          // Lyrics listesi
+                          Expanded(
+                            child: ListView.builder(
+                              controller: scrollController,
+                              padding: const EdgeInsets.only(top: 4, bottom: 80, left: 24, right: 24),
+                              itemCount: _sentences.length,
+                              itemBuilder: (context, index) {
+                                final sentence = _sentences[index];
+                                final isActive = index == _currentSentenceIndex;
+                                final isPast = index < _currentSentenceIndex;
+
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                  child: Text(
+                                    sentence.text,
+                                    style: GoogleFonts.inter(
+                                      fontSize: isActive ? 22 : 18,
+                                      fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                                      color: isActive 
+                                          ? Colors.white 
+                                          : (isPast ? Colors.white.withOpacity(0.5) : Colors.white.withOpacity(0.2)),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
         ],
       ),

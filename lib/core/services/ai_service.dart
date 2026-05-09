@@ -29,9 +29,10 @@ class AIService {
             'content': '''You are a professional, engaging podcast host. Turn the following article text into a short, compelling 1-person podcast monologue. 
 Make it sound natural, conversational, and interesting. Keep it under 500 words.
 CRITICAL RULES:
-1. DO NOT include any stage directions (e.g., *pause*, [laughs], (sighs), etc).
-2. DO NOT include any speaker labels or brackets.
-3. ONLY write the exact words that will be spoken out loud. Nothing else.
+1. DETECT the language of the source article. You MUST write the podcast script in the EXACT SAME LANGUAGE as the source article.
+2. DO NOT include any stage directions (e.g., *pause*, [laughs], (sighs), etc).
+3. DO NOT include any speaker labels or brackets.
+4. ONLY write the exact words that will be spoken out loud. Nothing else.
 '''
           },
           {
@@ -40,6 +41,7 @@ CRITICAL RULES:
           }
         ],
         'temperature': 0.7,
+        'max_tokens': 400, // ~200 kelime = ~400 token = ~1200 karakter (ElevenLabs tasarrufu)
       }),
     );
 
@@ -72,10 +74,10 @@ CRITICAL RULES:
       },
       body: jsonEncode({
         'text': script,
-        'model_id': 'eleven_turbo_v2_5', // Updated to the latest free-tier supported model
+        'model_id': 'eleven_multilingual_v2', // Updated to multilingual model to support Turkish and 28 other languages
         'voice_settings': {
           'stability': 0.5,
-          'similarity_boost': 0.5
+          'similarity_boost': 0.75 // Slightly higher similarity boost works better for multilingual
         }
       }),
     );

@@ -1,9 +1,11 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/models/word_timestamp.dart';
+import '../../../core/providers/history_provider.dart';
 
 class SentenceTimestamp {
   final String text;
@@ -12,13 +14,14 @@ class SentenceTimestamp {
   SentenceTimestamp(this.text, this.startTime, this.endTime);
 }
 
-class PlayerScreen extends StatefulWidget {
+class PlayerScreen extends ConsumerStatefulWidget {
   final String title;
   final String? audioFilePath;
   final List<WordTimestamp>? wordTimestamps;
   final String? script;
   final String? imageUrl;
   final String? category;
+  final String? podcastId;
   
   const PlayerScreen({
     super.key,
@@ -28,13 +31,15 @@ class PlayerScreen extends StatefulWidget {
     this.script,
     this.imageUrl,
     this.category,
+    this.podcastId,
   });
 
   @override
-  State<PlayerScreen> createState() => _PlayerScreenState();
+  ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends State<PlayerScreen> {
+class _PlayerScreenState extends ConsumerState<PlayerScreen>
+    with SingleTickerProviderStateMixin {
   final AudioPlayer _audioPlayer = AudioPlayer();
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
@@ -42,6 +47,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _isPlayerReady = false;
   bool _showLyrics = false;
   bool _showSubtitleTooltip = true;
+  bool _isDownloading = false;
+
+  late AnimationController _downloadAnimController;
 
   final ScrollController _lyricsScrollController = ScrollController();
   List<SentenceTimestamp> _sentences = [];
@@ -50,6 +58,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
   @override
   void initState() {
     super.initState();
+    _downloadAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
     _initAudioPlayer();
     _parseSentences();
   }
@@ -99,9 +111,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
     });
 
     // Load file if available
-    if (widget.audioFilePath != null) {
+    if (widget.audioFilePath != null && widget.audioFilePath!.isNotEmpty) {
       try {
-        await _audioPlayer.setSourceDeviceFile(widget.audioFilePath!);
+        final path = widget.audioFilePath!;
+        if (path.startsWith('http://') || path.startsWith('https://')) {
+          // Cloud URL — play directly from URL (audioplayers handles caching)
+          await _audioPlayer.setSourceUrl(path);
+        } else {
+          // Local file
+          await _audioPlayer.setSourceDeviceFile(path);
+        }
         _isPlayerReady = true;
         // Auto play
         await _audioPlayer.resume();
@@ -115,29 +134,25 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void dispose() {
     _audioPlayer.dispose();
     _lyricsScrollController.dispose();
+    _downloadAnimController.dispose();
     super.dispose();
   }
 
   void _updateLyricsScroll() {
-    if (_sentences.isEmpty || !_lyricsScrollController.hasClients) return;
+    if (_sentences.isEmpty) return;
 
     final currentSec = _position.inMilliseconds / 1000.0;
     int newIndex = _sentences.indexWhere((s) => currentSec >= s.startTime && currentSec <= s.endTime);
     
-    // Eğer konuşma aralarındaki bir saniyedeysek (örneğin iki cümle arası), son okunan cümleyi vurgulu tutabiliriz
+    // Eğer konuşma aralarındaki bir saniyedeysek, son okunan cümleyi vurgulu tut
     if (newIndex == -1) {
       newIndex = _sentences.lastIndexWhere((s) => currentSec > s.endTime);
     }
 
     if (newIndex != -1 && newIndex != _currentSentenceIndex) {
-      _currentSentenceIndex = newIndex;
-      // Scroll to index
-      final double offset = _currentSentenceIndex * 60.0; // Tahmini bir yükseklik
-      _lyricsScrollController.animateTo(
-        offset.clamp(0.0, _lyricsScrollController.position.maxScrollExtent),
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+      setState(() {
+        _currentSentenceIndex = newIndex;
+      });
     }
   }
 
@@ -209,34 +224,34 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             Positioned(
                               top: 48,
                               right: 0,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary,
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.primary.withOpacity(0.4),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      'Tap to show lyrics ',
-                                      style: GoogleFonts.inter(
-                                        color: Colors.white,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
+                              child: GestureDetector(
+                                onTap: () => setState(() => _showSubtitleTooltip = false),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppColors.primary.withOpacity(0.4),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
                                       ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    GestureDetector(
-                                      onTap: () => setState(() => _showSubtitleTooltip = false),
-                                      child: Container(
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Tap to show lyrics ',
+                                        style: GoogleFonts.inter(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                         decoration: BoxDecoration(
                                           color: Colors.white.withOpacity(0.2),
@@ -251,8 +266,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                           ),
                                         ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -431,76 +446,255 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     ],
                   ),
                 ),
+
+                const SizedBox(height: 24),
+
+                // Favorite & Download Buttons
+                if (widget.podcastId != null)
+                  Builder(
+                    builder: (context) {
+                      final historyAsync = ref.watch(historyProvider);
+                      final podcast = historyAsync.value
+                          ?.where((p) => p.id == widget.podcastId)
+                          .firstOrNull;
+                      if (podcast == null) return const SizedBox.shrink();
+
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Favorite
+                          GestureDetector(
+                            onTap: () {
+                              ref.read(historyProvider.notifier).toggleFavorite(podcast.id);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: podcast.isFavorite
+                                    ? Colors.redAccent.withOpacity(0.15)
+                                    : Colors.white.withOpacity(0.06),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: podcast.isFavorite
+                                      ? Colors.redAccent.withOpacity(0.4)
+                                      : Colors.white12,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    podcast.isFavorite
+                                        ? Icons.favorite_rounded
+                                        : Icons.favorite_border_rounded,
+                                    color: podcast.isFavorite
+                                        ? Colors.redAccent
+                                        : Colors.white54,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    podcast.isFavorite ? 'Saved' : 'Save',
+                                    style: GoogleFonts.inter(
+                                      color: podcast.isFavorite
+                                          ? Colors.redAccent
+                                          : Colors.white54,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          // Download — Netflix style circular progress
+                          GestureDetector(
+                            onTap: () async {
+                              if (!podcast.isDownloaded && !_isDownloading) {
+                                setState(() => _isDownloading = true);
+                                
+                                // Faz 1: Hızlı başla (%0 → %65) — doğal his
+                                _downloadAnimController.animateTo(
+                                  0.65,
+                                  duration: const Duration(milliseconds: 800),
+                                  curve: Curves.easeOut,
+                                );
+                                
+                                // Gerçek indirme işlemi
+                                await ref.read(historyProvider.notifier).downloadPodcast(podcast.id);
+                                
+                                if (mounted) {
+                                  // Faz 2: Yavaşla (%65 → %90) — "neredeyse bitti" hissi
+                                  await _downloadAnimController.animateTo(
+                                    0.9,
+                                    duration: const Duration(milliseconds: 600),
+                                    curve: Curves.easeInOut,
+                                  );
+                                  
+                                  // Faz 3: Son hamle (%90 → %100)
+                                  await _downloadAnimController.animateTo(
+                                    1.0,
+                                    duration: const Duration(milliseconds: 400),
+                                    curve: Curves.easeIn,
+                                  );
+                                  
+                                  // Tamamlandı — kısa bir "done" anı
+                                  await Future.delayed(const Duration(milliseconds: 800));
+                                  if (mounted) setState(() => _isDownloading = false);
+                                }
+                              }
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: podcast.isDownloaded
+                                    ? Colors.greenAccent.withOpacity(0.1)
+                                    : Colors.white.withOpacity(0.06),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: podcast.isDownloaded
+                                      ? Colors.greenAccent.withOpacity(0.3)
+                                      : Colors.white12,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (_isDownloading)
+                                    SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: AnimatedBuilder(
+                                        animation: _downloadAnimController,
+                                        builder: (context, _) {
+                                          return CustomPaint(
+                                            painter: _CircularDownloadPainter(
+                                              progress: _downloadAnimController.value,
+                                              color: AppColors.primary,
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    )
+                                  else
+                                    Icon(
+                                      podcast.isDownloaded
+                                          ? Icons.download_done_rounded
+                                          : Icons.download_rounded,
+                                      color: podcast.isDownloaded
+                                          ? Colors.greenAccent
+                                          : Colors.white54,
+                                      size: 20,
+                                    ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _isDownloading
+                                        ? 'Saving...'
+                                        : (podcast.isDownloaded ? 'Saved' : 'Download'),
+                                    style: GoogleFonts.inter(
+                                      color: _isDownloading
+                                          ? AppColors.primary
+                                          : (podcast.isDownloaded
+                                              ? Colors.greenAccent
+                                              : Colors.white54),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 SizedBox(height: _showLyrics && _sentences.isNotEmpty ? 120 : 48), // Bottom sheet için boşluk
               ],
             ),
           ),
           
-          // Animasyonlu Lyrics Paneli
-          if (_sentences.isNotEmpty)
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 400),
-              curve: Curves.easeInOut,
-              left: 0,
-              right: 0,
-              bottom: _showLyrics ? 0 : -(MediaQuery.of(context).size.height * 0.45),
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                  child: Container(
-                    height: MediaQuery.of(context).size.height * 0.45,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
-                      border: Border(top: BorderSide(width: 1, color: Colors.white.withOpacity(0.1))),
-                    ),
-                    child: Column(
-                      children: [
-                        // Kapat butonu ve çizgi
-                        GestureDetector(
-                          onTap: () => setState(() => _showLyrics = false),
-                          child: Container(
-                            margin: const EdgeInsets.only(top: 12, bottom: 8),
-                            width: 40,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(2),
+          // Sürüklenebilir Lyrics Paneli (DraggableScrollableSheet)
+          if (_sentences.isNotEmpty && _showLyrics)
+            DraggableScrollableSheet(
+              initialChildSize: 0.35,
+              minChildSize: 0.15,
+              maxChildSize: 0.75,
+              snap: true,
+              snapSizes: const [0.15, 0.35, 0.55, 0.75],
+              builder: (context, scrollController) {
+                return ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        border: Border(top: BorderSide(width: 1, color: Colors.white.withOpacity(0.15))),
+                      ),
+                      child: Column(
+                        children: [
+                          // Sürükleme çubuğu (handle)
+                          GestureDetector(
+                            onTap: () => setState(() => _showLyrics = false),
+                            child: Container(
+                              margin: const EdgeInsets.only(top: 12, bottom: 4),
+                              width: 40,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.4),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
                             ),
                           ),
-                        ),
-                        // Şarkı sözleri
-                        Expanded(
-                          child: ListView.builder(
-                            controller: _lyricsScrollController,
-                            padding: const EdgeInsets.only(top: 12, bottom: 80, left: 24, right: 24),
-                            itemCount: _sentences.length,
-                            itemBuilder: (context, index) {
-                              final sentence = _sentences[index];
-                              final isActive = index == _currentSentenceIndex;
-                              final isPast = index < _currentSentenceIndex;
-
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                child: Text(
-                                  sentence.text,
-                                  style: GoogleFonts.inter(
-                                    fontSize: isActive ? 22 : 18,
-                                    fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                                    color: isActive 
-                                        ? Colors.white 
-                                        : (isPast ? Colors.white.withOpacity(0.5) : Colors.white.withOpacity(0.2)),
-                                  ),
-                                ),
-                              );
-                            },
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              'Subtitles',
+                              style: GoogleFonts.inter(
+                                color: Colors.white54,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                          // Lyrics listesi
+                          Expanded(
+                            child: ListView.builder(
+                              controller: scrollController,
+                              padding: const EdgeInsets.only(top: 4, bottom: 80, left: 24, right: 24),
+                              itemCount: _sentences.length,
+                              itemBuilder: (context, index) {
+                                final sentence = _sentences[index];
+                                final isActive = index == _currentSentenceIndex;
+                                final isPast = index < _currentSentenceIndex;
+
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                  child: Text(
+                                    sentence.text,
+                                    style: GoogleFonts.inter(
+                                      fontSize: isActive ? 22 : 18,
+                                      fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                                      color: isActive 
+                                          ? Colors.white 
+                                          : (isPast ? Colors.white.withOpacity(0.5) : Colors.white.withOpacity(0.2)),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
         ],
       ),
@@ -522,5 +716,95 @@ class _PlayerScreenState extends State<PlayerScreen> {
         child: Icon(Icons.graphic_eq_rounded, size: 80, color: Colors.white54),
       ),
     );
+  }
+}
+
+/// Netflix tarzı 360° dolarak ilerleyen circular download progress
+class _CircularDownloadPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  _CircularDownloadPainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 2;
+
+    // Background circle (track)
+    final bgPaint = Paint()
+      ..color = color.withOpacity(0.2)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5;
+    canvas.drawCircle(center, radius, bgPaint);
+
+    // Progress arc
+    final progressPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round;
+
+    const startAngle = -3.14159 / 2; // Top center
+    final sweepAngle = 2 * 3.14159 * progress;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      sweepAngle,
+      false,
+      progressPaint,
+    );
+
+    // Center arrow icon (small)
+    if (progress < 1.0) {
+      final arrowPaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round;
+
+      // Draw small down arrow
+      final arrowSize = radius * 0.5;
+      canvas.drawLine(
+        Offset(center.dx, center.dy - arrowSize * 0.4),
+        Offset(center.dx, center.dy + arrowSize * 0.4),
+        arrowPaint,
+      );
+      canvas.drawLine(
+        Offset(center.dx - arrowSize * 0.35, center.dy + arrowSize * 0.05),
+        Offset(center.dx, center.dy + arrowSize * 0.4),
+        arrowPaint,
+      );
+      canvas.drawLine(
+        Offset(center.dx + arrowSize * 0.35, center.dy + arrowSize * 0.05),
+        Offset(center.dx, center.dy + arrowSize * 0.4),
+        arrowPaint,
+      );
+    } else {
+      // Checkmark when done
+      final checkPaint = Paint()
+        ..color = Colors.greenAccent
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round;
+
+      final checkSize = radius * 0.5;
+      canvas.drawLine(
+        Offset(center.dx - checkSize * 0.4, center.dy),
+        Offset(center.dx - checkSize * 0.05, center.dy + checkSize * 0.35),
+        checkPaint,
+      );
+      canvas.drawLine(
+        Offset(center.dx - checkSize * 0.05, center.dy + checkSize * 0.35),
+        Offset(center.dx + checkSize * 0.4, center.dy - checkSize * 0.25),
+        checkPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CircularDownloadPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }

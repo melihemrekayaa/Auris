@@ -1,9 +1,11 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/models/word_timestamp.dart';
+import '../../../core/providers/history_provider.dart';
 
 class SentenceTimestamp {
   final String text;
@@ -12,13 +14,14 @@ class SentenceTimestamp {
   SentenceTimestamp(this.text, this.startTime, this.endTime);
 }
 
-class PlayerScreen extends StatefulWidget {
+class PlayerScreen extends ConsumerStatefulWidget {
   final String title;
   final String? audioFilePath;
   final List<WordTimestamp>? wordTimestamps;
   final String? script;
   final String? imageUrl;
   final String? category;
+  final String? podcastId;
   
   const PlayerScreen({
     super.key,
@@ -28,13 +31,15 @@ class PlayerScreen extends StatefulWidget {
     this.script,
     this.imageUrl,
     this.category,
+    this.podcastId,
   });
 
   @override
-  State<PlayerScreen> createState() => _PlayerScreenState();
+  ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends State<PlayerScreen> {
+class _PlayerScreenState extends ConsumerState<PlayerScreen>
+    with SingleTickerProviderStateMixin {
   final AudioPlayer _audioPlayer = AudioPlayer();
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
@@ -42,6 +47,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _isPlayerReady = false;
   bool _showLyrics = false;
   bool _showSubtitleTooltip = true;
+  bool _isDownloading = false;
+
+  late AnimationController _downloadAnimController;
 
   final ScrollController _lyricsScrollController = ScrollController();
   List<SentenceTimestamp> _sentences = [];
@@ -50,6 +58,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
   @override
   void initState() {
     super.initState();
+    _downloadAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
     _initAudioPlayer();
     _parseSentences();
   }
@@ -122,6 +134,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void dispose() {
     _audioPlayer.dispose();
     _lyricsScrollController.dispose();
+    _downloadAnimController.dispose();
     super.dispose();
   }
 
@@ -433,6 +446,172 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     ],
                   ),
                 ),
+
+                const SizedBox(height: 24),
+
+                // Favorite & Download Buttons
+                if (widget.podcastId != null)
+                  Builder(
+                    builder: (context) {
+                      final historyAsync = ref.watch(historyProvider);
+                      final podcast = historyAsync.value
+                          ?.where((p) => p.id == widget.podcastId)
+                          .firstOrNull;
+                      if (podcast == null) return const SizedBox.shrink();
+
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Favorite
+                          GestureDetector(
+                            onTap: () {
+                              ref.read(historyProvider.notifier).toggleFavorite(podcast.id);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: podcast.isFavorite
+                                    ? Colors.redAccent.withOpacity(0.15)
+                                    : Colors.white.withOpacity(0.06),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: podcast.isFavorite
+                                      ? Colors.redAccent.withOpacity(0.4)
+                                      : Colors.white12,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    podcast.isFavorite
+                                        ? Icons.favorite_rounded
+                                        : Icons.favorite_border_rounded,
+                                    color: podcast.isFavorite
+                                        ? Colors.redAccent
+                                        : Colors.white54,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    podcast.isFavorite ? 'Saved' : 'Save',
+                                    style: GoogleFonts.inter(
+                                      color: podcast.isFavorite
+                                          ? Colors.redAccent
+                                          : Colors.white54,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          // Download — Netflix style circular progress
+                          GestureDetector(
+                            onTap: () async {
+                              if (!podcast.isDownloaded && !_isDownloading) {
+                                setState(() => _isDownloading = true);
+                                
+                                // Faz 1: Hızlı başla (%0 → %65) — doğal his
+                                _downloadAnimController.animateTo(
+                                  0.65,
+                                  duration: const Duration(milliseconds: 800),
+                                  curve: Curves.easeOut,
+                                );
+                                
+                                // Gerçek indirme işlemi
+                                await ref.read(historyProvider.notifier).downloadPodcast(podcast.id);
+                                
+                                if (mounted) {
+                                  // Faz 2: Yavaşla (%65 → %90) — "neredeyse bitti" hissi
+                                  await _downloadAnimController.animateTo(
+                                    0.9,
+                                    duration: const Duration(milliseconds: 600),
+                                    curve: Curves.easeInOut,
+                                  );
+                                  
+                                  // Faz 3: Son hamle (%90 → %100)
+                                  await _downloadAnimController.animateTo(
+                                    1.0,
+                                    duration: const Duration(milliseconds: 400),
+                                    curve: Curves.easeIn,
+                                  );
+                                  
+                                  // Tamamlandı — kısa bir "done" anı
+                                  await Future.delayed(const Duration(milliseconds: 800));
+                                  if (mounted) setState(() => _isDownloading = false);
+                                }
+                              }
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: podcast.isDownloaded
+                                    ? Colors.greenAccent.withOpacity(0.1)
+                                    : Colors.white.withOpacity(0.06),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: podcast.isDownloaded
+                                      ? Colors.greenAccent.withOpacity(0.3)
+                                      : Colors.white12,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (_isDownloading)
+                                    SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: AnimatedBuilder(
+                                        animation: _downloadAnimController,
+                                        builder: (context, _) {
+                                          return CustomPaint(
+                                            painter: _CircularDownloadPainter(
+                                              progress: _downloadAnimController.value,
+                                              color: AppColors.primary,
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    )
+                                  else
+                                    Icon(
+                                      podcast.isDownloaded
+                                          ? Icons.download_done_rounded
+                                          : Icons.download_rounded,
+                                      color: podcast.isDownloaded
+                                          ? Colors.greenAccent
+                                          : Colors.white54,
+                                      size: 20,
+                                    ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _isDownloading
+                                        ? 'Saving...'
+                                        : (podcast.isDownloaded ? 'Saved' : 'Download'),
+                                    style: GoogleFonts.inter(
+                                      color: _isDownloading
+                                          ? AppColors.primary
+                                          : (podcast.isDownloaded
+                                              ? Colors.greenAccent
+                                              : Colors.white54),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 SizedBox(height: _showLyrics && _sentences.isNotEmpty ? 120 : 48), // Bottom sheet için boşluk
               ],
             ),
@@ -537,5 +716,95 @@ class _PlayerScreenState extends State<PlayerScreen> {
         child: Icon(Icons.graphic_eq_rounded, size: 80, color: Colors.white54),
       ),
     );
+  }
+}
+
+/// Netflix tarzı 360° dolarak ilerleyen circular download progress
+class _CircularDownloadPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  _CircularDownloadPainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 2;
+
+    // Background circle (track)
+    final bgPaint = Paint()
+      ..color = color.withOpacity(0.2)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5;
+    canvas.drawCircle(center, radius, bgPaint);
+
+    // Progress arc
+    final progressPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round;
+
+    const startAngle = -3.14159 / 2; // Top center
+    final sweepAngle = 2 * 3.14159 * progress;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      sweepAngle,
+      false,
+      progressPaint,
+    );
+
+    // Center arrow icon (small)
+    if (progress < 1.0) {
+      final arrowPaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round;
+
+      // Draw small down arrow
+      final arrowSize = radius * 0.5;
+      canvas.drawLine(
+        Offset(center.dx, center.dy - arrowSize * 0.4),
+        Offset(center.dx, center.dy + arrowSize * 0.4),
+        arrowPaint,
+      );
+      canvas.drawLine(
+        Offset(center.dx - arrowSize * 0.35, center.dy + arrowSize * 0.05),
+        Offset(center.dx, center.dy + arrowSize * 0.4),
+        arrowPaint,
+      );
+      canvas.drawLine(
+        Offset(center.dx + arrowSize * 0.35, center.dy + arrowSize * 0.05),
+        Offset(center.dx, center.dy + arrowSize * 0.4),
+        arrowPaint,
+      );
+    } else {
+      // Checkmark when done
+      final checkPaint = Paint()
+        ..color = Colors.greenAccent
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round;
+
+      final checkSize = radius * 0.5;
+      canvas.drawLine(
+        Offset(center.dx - checkSize * 0.4, center.dy),
+        Offset(center.dx - checkSize * 0.05, center.dy + checkSize * 0.35),
+        checkPaint,
+      );
+      canvas.drawLine(
+        Offset(center.dx - checkSize * 0.05, center.dy + checkSize * 0.35),
+        Offset(center.dx + checkSize * 0.4, center.dy - checkSize * 0.25),
+        checkPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CircularDownloadPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }

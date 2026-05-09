@@ -9,6 +9,7 @@ import '../../../core/providers/trial_provider.dart';
 import '../../../core/providers/podcast_provider.dart';
 import '../../../core/providers/history_provider.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/connectivity_provider.dart';
 import '../../player/presentation/player_screen.dart';
 import 'podcast_loading_overlay.dart';
 
@@ -94,6 +95,7 @@ class _HomeScreenContentState extends ConsumerState<_HomeScreenContent> {
               script: podcastState.script,
               imageUrl: podcastState.imageUrl,
               category: podcastState.category,
+              podcastId: podcastState.podcastId,
             ),
           ),
         );
@@ -111,6 +113,7 @@ class _HomeScreenContentState extends ConsumerState<_HomeScreenContent> {
   Widget build(BuildContext context) {
     final trialState = ref.watch(trialProvider);
     final podcastState = ref.watch(podcastProvider);
+    final isConnected = ref.watch(connectivityProvider).value ?? true;
     // [TESTING MODE] Her zaman false yaparak sınırsız deneme hakkı tanımlıyoruz
     final hasUsedTrial = false; 
 
@@ -122,6 +125,34 @@ class _HomeScreenContentState extends ConsumerState<_HomeScreenContent> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Offline Banner
+            if (!isConnected)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 24),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.12),
+                  border: Border(
+                    bottom: BorderSide(color: Colors.orange.withOpacity(0.3)),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.wifi_off_rounded, color: Colors.orange.shade300, size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'No internet connection. Your downloaded podcasts are still available.',
+                        style: GoogleFonts.inter(
+                          color: Colors.orange.shade300,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             // Header
             Padding(
               padding: const EdgeInsets.all(24.0),
@@ -154,49 +185,21 @@ class _HomeScreenContentState extends ConsumerState<_HomeScreenContent> {
                     ],
                   ),
                   
-                  // Profile / Logout
+                  // Profile Avatar (tap disabled — settings'ten yönetiliyor)
                   Consumer(
                     builder: (context, ref, child) {
                       final user = ref.watch(authStateProvider).value;
-                      return GestureDetector(
-                        onTap: () {
-                          showModalBottomSheet(
-                            context: context,
-                            backgroundColor: AppColors.glassBackground,
-                            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-                            builder: (context) => SafeArea(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const SizedBox(height: 12),
-                                  Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
-                                  const SizedBox(height: 24),
-                                  ListTile(
-                                    leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-                                    title: Text('Sign Out', style: GoogleFonts.inter(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-                                    onTap: () async {
-                                      Navigator.pop(context);
-                                      await ref.read(authServiceProvider).signOut();
-                                    },
-                                  ),
-                                  const SizedBox(height: 16),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: AppColors.glassBackground,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: AppColors.glassBorder),
-                          ),
-                          child: user?.photoURL != null
-                              ? ClipOval(child: Image.network(user!.photoURL!, fit: BoxFit.cover))
-                              : const Icon(Icons.person_rounded, color: Colors.white, size: 24),
+                      return Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: AppColors.glassBackground,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.glassBorder),
                         ),
+                        child: user?.photoURL != null
+                            ? ClipOval(child: Image.network(user!.photoURL!, fit: BoxFit.cover))
+                            : const Icon(Icons.person_rounded, color: Colors.white, size: 24),
                       );
                     },
                   ),
@@ -230,46 +233,75 @@ class _HomeScreenContentState extends ConsumerState<_HomeScreenContent> {
                           textColor: Colors.white,
                           descTextStyle: GoogleFonts.inter(fontWeight: FontWeight.w500, fontSize: 14),
                           child: hasUsedTrial
-                            ? Text(
-                                'Trial Finished (Premium Required)',
-                                style: GoogleFonts.inter(
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.tertiary,
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.lock_rounded, color: Colors.white38, size: 16),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Premium Required',
+                                      style: GoogleFonts.inter(
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white38,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               )
                             : Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: AppColors.primary.withOpacity(0.5)),
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      AppColors.primary.withOpacity(0.2),
+                                      const Color(0xFF7C3AED).withOpacity(0.15),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: AppColors.primary.withOpacity(0.4)),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Container(
                                       padding: const EdgeInsets.all(4),
-                                      decoration: const BoxDecoration(
-                                        color: AppColors.primary,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Text(
-                                        '1',
-                                        style: GoogleFonts.inter(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
+                                      decoration: BoxDecoration(
+                                        gradient: const LinearGradient(
+                                          colors: [AppColors.primary, Color(0xFF7C3AED)],
                                         ),
+                                        borderRadius: BorderRadius.circular(6),
                                       ),
+                                      child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 14),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Free Trial Available',
-                                      style: GoogleFonts.inter(
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.primary,
-                                        fontSize: 14,
-                                      ),
+                                    const SizedBox(width: 10),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Free Trial',
+                                          style: GoogleFonts.inter(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Paste a link to start',
+                                          style: GoogleFonts.inter(
+                                            color: AppColors.primary,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -441,11 +473,14 @@ class _HomeScreenContentState extends ConsumerState<_HomeScreenContent> {
                               MaterialPageRoute(
                                 builder: (context) => PlayerScreen(
                                   title: podcast.title,
-                                  audioFilePath: podcast.audioFilePath,
+                                  audioFilePath: podcast.isDownloaded && podcast.localFilePath != null
+                                      ? podcast.localFilePath!
+                                      : podcast.audioFilePath,
                                   wordTimestamps: podcast.wordTimestamps,
                                   script: podcast.script,
                                   imageUrl: podcast.imageUrl,
                                   category: podcast.category,
+                                  podcastId: podcast.id,
                                 ),
                               ),
                             );
@@ -505,6 +540,10 @@ class _HomeScreenContentState extends ConsumerState<_HomeScreenContent> {
                                             ),
                                             const SizedBox(width: 8),
                                           ],
+                                          if (podcast.isDownloaded)
+                                            Icon(Icons.download_done_rounded, size: 14, color: Colors.greenAccent.shade400),
+                                          if (podcast.isDownloaded)
+                                            const SizedBox(width: 4),
                                           Text(
                                             '${podcast.createdAt.day}/${podcast.createdAt.month}/${podcast.createdAt.year}',
                                             style: GoogleFonts.inter(
@@ -517,6 +556,14 @@ class _HomeScreenContentState extends ConsumerState<_HomeScreenContent> {
                                     ],
                                   ),
                                 ),
+                                // Download butonunu da Library'ye ekliyoruz
+                                if (!podcast.isDownloaded)
+                                  IconButton(
+                                    onPressed: () {
+                                      ref.read(historyProvider.notifier).downloadPodcast(podcast.id);
+                                    },
+                                    icon: Icon(Icons.download_rounded, color: Colors.white.withOpacity(0.4), size: 22),
+                                  ),
                                 const Icon(Icons.play_circle_fill_rounded, color: AppColors.primary, size: 36),
                               ],
                             ),

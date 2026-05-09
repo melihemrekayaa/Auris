@@ -21,6 +21,7 @@ class PodcastGenerationState {
   final String? title;
   final String? imageUrl;
   final String? category;
+  final String? podcastId;
 
   PodcastGenerationState({
     this.isLoading = false,
@@ -32,6 +33,7 @@ class PodcastGenerationState {
     this.title,
     this.imageUrl,
     this.category,
+    this.podcastId,
   });
 
   PodcastGenerationState copyWith({
@@ -44,6 +46,7 @@ class PodcastGenerationState {
     String? title,
     String? imageUrl,
     String? category,
+    String? podcastId,
   }) {
     return PodcastGenerationState(
       isLoading: isLoading ?? this.isLoading,
@@ -55,6 +58,7 @@ class PodcastGenerationState {
       title: title ?? this.title,
       imageUrl: imageUrl ?? this.imageUrl,
       category: category ?? this.category,
+      podcastId: podcastId ?? this.podcastId,
     );
   }
 }
@@ -120,6 +124,7 @@ class PodcastNotifier extends Notifier<PodcastGenerationState> {
         title: article.title,
         imageUrl: article.imageUrl,
         category: smartCategory,
+        podcastId: uuid,
       );
       
       return true;

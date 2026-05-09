@@ -165,13 +165,17 @@ class _PodcastLoadingOverlayState extends State<PodcastLoadingOverlay>
 
                 const SizedBox(height: 12),
 
-                Text(
-                  "Hang tight — we're making something special for you ✨",
-                  style: GoogleFonts.inter(
-                    fontSize: 15,
-                    color: Colors.white60,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 40),
+                  child: Text(
+                    "Hang tight — we're making\nsomething special for you ✨",
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      color: Colors.white60,
+                      height: 1.5,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
                 ),
 
                 const SizedBox(height: 40),
